@@ -12,4 +12,7 @@ class InfoPane{
                     <i>${cccTitle}</i> - ${cccDesc}<br>
                     <i>${sepTitle}</i> - ${sepDesc}`);
     }
+    width(){
+        return this.elem.width;
+    }
 }

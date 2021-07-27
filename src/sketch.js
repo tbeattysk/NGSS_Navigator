@@ -8,6 +8,7 @@ var canvas
 var infoPanePrim
 var hoveredElement;
 var selectedElement;
+var mouseManager;
 
 function preload(){
     ngss = loadJSON("ngssMini.JSON");
@@ -19,31 +20,30 @@ function preload(){
         loadImage("src/consult.svg"),
         loadImage("src/newspaper.svg"),
         loadImage("src/biometric.svg"),
-        loadImage("src/calculating.svg"),
-        
+        loadImage("src/calculating.svg")
       ]
-      
 }
 function setup() {
     canvas = createCanvas(window.innerWidth,window.innerHeight);
     canvas.position(0,0,"relative")
     infoPanePrim = new InfoPane();
+    
     //Create NGSS Graphs
     //TODO: create new class that extends RowSet with graphDrawing :)
     sepsIcons = new SepsPannel(30,30,400,80,ngss["S2467516"],ngss,practiceLogos)
+    dciLists = new DciPannel(50,100,500,200,ngss["S2467517"],ngss)
     cccGraph = new GraphDrawing(0,0,width,height,ngss["S2467518"],15,5,ngss);
-    
+    mouseManager = new MouseManager();
     //Add grade-band rows by refs...
     redraw()
     //cccGraph.redraw();
      
     //openFullScreen();
+    noLoop();
 }
 
 function draw(){
-    background(255,255,255)
-    cccGraph.redraw();
-    sepsIcons.redraw();
+    
 }
 
 window.onresize = function() {
@@ -74,26 +74,88 @@ let redraw = function(){
     
     
     resizeCanvas(desiredWidth,desiredHeight)
-    background(255,255,255)
-   
+    background(0,0,0)
     noFill();
     cccGraph.setBounds([0,0,width-150,height]);
     cccGraph.updateLayout();
     sepsIcons.redraw();
     cccGraph.redraw();
+    dciLists.redraw()
 }
 
 // EVENTS
 function mouseMoved(event){
-    cccGraph.checkHover();
-    sepsIcons.checkHover();
+    if(mouseManager){
+        mouseManager.mouseMoved();
+    }
 }
 
 function mouseClicked(event){
     cccGraph.checkHover();
     sepsIcons.checkHover();
+    dciLists.checkHover();
     if(hoveredElement != null){
         hoveredElement.select();
         selectedElement = hoveredElement;
+    }
+}
+
+class MouseManager{
+    constructor(){
+        this.hoveredElement = null;
+        this.linkedElements = [];
+    }
+    setHover(element,linkedElements){
+        fill(255,255,255)
+        let title
+        let description
+        if(element instanceof Dot){
+            title = element.statementNotation[0].value
+            description = element.dciTitleRef.description[0].value
+        }else if(element instanceof SepRefIcon){
+            title = ""
+            description = element.description[0].value
+        }else if(element instanceof DciEnd){
+            title = element.tempNotation
+            description = element.possibleRefs[0].description[0].value
+        }else if(element instanceof DciDropRight){
+            title = element.tempNotation
+            description =  element.description[0].value
+        }
+        textAlign(RIGHT,TOP)
+        text(title,470,30,100,120)
+        textAlign(LEFT,TOP)
+        text(description,580,30,width-580,120)
+        
+        this.hoveredElement = element;
+        element.highlight();
+        this.linkedElements = linkedElements;
+        linkedElements.forEach(link=>{
+            link.highlight()
+        })
+    }
+    clearHover(){
+        fill(0,0,0)
+        noStroke()
+        rect(450,30,width-460,60)
+        this.hoveredElement.dehighlight();
+        this.hoveredElement = null;
+        this.linkedElements.forEach(link=>{
+            link.dehighlight()
+        })
+        this.linkedElements = []
+    }
+    mouseMoved(){
+        if(this.hoveredElement){
+            if(!this.hoveredElement.checkHover()){
+                this.clearHover();
+                this.mouseMoved();
+            }
+        }else{
+            let element = sepsIcons.checkHover() || dciLists.checkHover() || cccGraph.checkHover();
+            if(element){
+                this.setHover(element, element.linkedElements);
+            }
+        }
     }
 }

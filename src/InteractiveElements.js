@@ -51,10 +51,12 @@ class InteractiveContainer{
     }
     checkHover(){
         if(mouseX>this.x() && mouseX<this.x()+this.width() && mouseY>this.y() && mouseY<this.y()+this.height()){
-            this.children.forEach(child => {
-                child.checkHover();
-            });
+            for (let i = 0; i < this.children.length; i++) {
+                const childHover = this.children[i].checkHover();
+                if(childHover)return childHover
+            }
         }
+        return null;
     }
     getDotSize(){
         if(this.dotSize && this.dotSpacing){return this.dotSize + this.dotSpacing}
@@ -154,6 +156,10 @@ class DotSetRow extends HorizontalPanel{
         super(x,y,width,0,data,8)
         this.totalPEs = 0;
     }
+    redraw(){
+
+        super.redraw()
+    }
     setHeight(newHeight){
         this.children.forEach(child=>{
             child.setHeight(newHeight);
@@ -232,169 +238,165 @@ class DotSet extends InteractiveContainer{
         }
         return [x,y];
     }
-    redraw(){
-        noFill()
-        rect(this.x(),this.y(),this.width(),this.height());
-        super.redraw();
-    }
+    // redraw(){
+    //     noFill()
+    //     rect(this.x(),this.y(),this.width(),this.height());
+    //     super.redraw();
+    // }
 }
 class InteractiveElement extends InteractiveContainer{
     constructor(x,y,diameter,data){
         super(x,y,diameter, diameter,data)
-        this.state = "rest";
-        this.restLook = {fill:color(0,0,0), stroke:color(0,0,0)};
-        this.hoverLook = {fill:color(255,0,150), stroke:color(0,0,0)};
-        this.selectedLook = {fill:color(255,255,255), stroke:color(0,0,0)};
-        this.highlightLook = {fill:color(0,180,180), stroke:color(0,0,0)};
-        this.featuredLook = {fill:color(0,0,0), stroke:color(0,0,0)};
-        this.hovered = false;
+        this.linkedElements = []
+        this.restLook = {fill:color(255,255,255), stroke:color(255,255,255)};
+        this.highlightLook = {fill:color(150,150,150), stroke:color(0,0,0)};
+        this.background = color(0,0,0)
         this.selected = false;
+        this.outlined = false;
         this.highlighted = false;
-        this.featured = false;
         this.hidden = false;
-        this.rest();
     }
-    redraw(){
-        switch(this.state){
-            case "hidden":
-                break;
-            case "rest":
-                break;
-            case "hover":
-                this.checkHover()
-                break;
-            case "selected":
-                if(selectedElement != this){
-                    this.rest();
-                }
-                break;
-            case "highlight":
-                break;
-            case "featured":
-                break;
-        }
-        fill(this.color)
-        stroke(this.stroke)
+    drawBackground(){
+        //draw background
     }
-    rest(){
-        if(!this.hidden){
-            this.hovered = false;
-            this.selected = false;
-            if(this.featured){
-                this.feature();
-            }else{
-                this.state = "rest";
-                this.stroke = this.restLook.stroke;
-                this.color = this.restLook.fill;
-            }
+    redraw(withBackground){
+        if(withBackground){
+            this.drawBackground();
+        }if(!this.hidden){
+            if(!this.highlighted && !this.outlined && !this.selected)this.drawRest()
+            if(this.highlighted)this.drawHighlighted();
+            if(this.outlined)this.drawOutlined();
+            if(this.selected)this.drawSelected();
         }
+        super.redraw()
     }
     hide(){
         this.hidden = true;
+        this.drawBackground();
     }
     show(){
         this.hidden = false;
-        this.rest();
-    }
-    hover(){
-        hoveredElement = this;
-        this.hovered = true
-        this.state = "hover";
-        this.stroke = this.hoverLook.stroke;
-        this.color = this.hoverLook.fill;
+        this.redraw(true)
     }
     select(){
-        this.rest();
         this.selected = true;
-        this.state = "selected";
-        this.stroke = this.selectedLook.stroke;
-        this.color = this.selectedLook.fill;
+        this.redraw(true)
+    }
+    deselect(){
+        this.selected = false;
+        this.redraw(true);
     }
     highlight(){
         this.highlighted = true;
-        this.state = "highlight";
-        this.stroke = this.highlightLook.stroke;
-        this.color = this.highlightLook.fill;
+        this.redraw(true);
     }
     dehighlight(){
         this.highlighted = false;
-        this.rest();
+        this.redraw(true);
     }
-    feature(){
-        this.state = "featured";
-        this.stroke = this.featuredLook.stroke;
-        this.color = this.featuredLook.fill;
+    outline(){
+        this.outlined=true;
+        this.redraw(true);
     }
-    checkHover(){
-        if( this.state != "selected"){
-            if(this.isWithin()){
-                    this.hover();
-            }else{
-                if(this.hovered){
-                    hoveredElement = null;
-                    if(this.highlighted)
-                        this.highlight()
-                    else
-                        this.rest();
-                }
-            }
-        }
+    deoutline(){
+        this.outlined=false;
+        this.redraw(true);
+    }
+    drawRest(){
+        //Abstract
+    }
+    drawHighlighted(){
+        //Abstract
+    }
+    drawOutlined(){
+        //Abstract
+    }
+    drawSelected(){
+        //Abstract
     }
 
 }
 class Dot extends InteractiveElement{
-    constructor(x, y, diameter, index, data,cccRef, sepRef){
+    constructor(x, y, diameter, index, data,cccRef, sepRef, dciRefs, dciTitleRef){
         super(x,y,diameter,data)
         this.index = index
         this.data = data
         this.cccRef = cccRef;
         this.sepRef = sepRef;
-        this.linkedElements = [sepRef]
-
+        this.dciRefs = dciRefs;
+        this.dciTitleRef = dciTitleRef;
+        this.dciId = dciTitleRef.statementNotation[0].value.split("-")[1]
+        this.dciDesc = dciTitleRef.description[0].value
+        this.linkedElements = [sepRef];
+        this.linkedElements = this.linkedElements.concat(dciRefs);
         sepRef.linkedElements.push(this);
+        dciRefs.forEach(ref=>{
+            ref.linkedElements.push(this);
+            if(this.dciId == ref.parent.tempNotation){
+                this.linkedElements.push(ref.parent)
+                this.linkedElements.push(ref.parent.parent)
+                ref.parent.linkedElements.push(this)
+                ref.parent.parent.linkedElements.push(this)
+            }
+        })
+        
     }
     updateLayout(){
         //get the dot position from the DotSet parent
         this.setPosition(this.parent.getDotPosition(this.index));
     }
-    redraw(){
-        super.redraw();
-        circle(this.x(),this.y(),this.getDotSize()-this.getDotSpacing());
-    }    
-    isWithin(){
+    drawBackground(){
+        fill(this.background)
+        noStroke()
+        circle(this.x(),this.y(),this.getDotSize()+2);
+    }
+
+    checkHover(){
         let d = dist(mouseX,mouseY,this.x(),this.y());
-        return d<this.getDotSize()/2;
-    }
-    hover(){
-        super.hover();
-        this.linkedElements.forEach(element => {
-            if(element.state != "selected")
-                element.highlight();
-        });
-        let cccDesc = this.searchComprisedOf(this.cccRef.possibleRefs);
-        let sepsDesc = this.searchComprisedOf(this.sepRef.possibleRefs)
-        infoPanePrim.updateData(this.statementNotation[0].value,
-            this.description[0].value,
-            this.parent.parent.description[0].value,
-            cccDesc.description[0].value,
-            this.parent.possibleRefs[0].description[0].value,
-            sepsDesc.description[0].value)
-    }
-    rest(){
-        if(this.hovered){
-            this.linkedElements.forEach(element => {
-                if(element.state!= "selected")
-                    element.dehighlight();
-            });
+        if(d<this.getDotSize()/2){
+            return this;
         }
-         super.rest();
-         
+        return null;
+    } 
+    // hover(){
+    //     super.hover();
+    //     let cccDesc = this.searchComprisedOf(this.cccRef.possibleRefs);
+    //     let sepsDesc = this.searchComprisedOf(this.sepRef.possibleRefs)
+    //     infoPanePrim.updateData(this.statementNotation[0].value,
+    //         this.description[0].value,
+    //         this.parent.parent.description[0].value,
+    //         cccDesc.description[0].value,
+    //         this.parent.possibleRefs[0].description[0].value,
+    //         sepsDesc.description[0].value)
+    // }
+    drawRest(){
+        fill(this.restLook.fill);
+        noStroke();
+        circle(this.x(),this.y(),this.getDotSize()-this.getDotSpacing());
     }
+    drawHighlighted(){
+        fill(this.highlightLook.fill);
+        noStroke();
+        circle(this.x(),this.y(),this.getDotSize()-this.getDotSpacing());
+    }
+    drawOutlined(){
+        stroke(color(255,255,255));
+        strokeWidth(2)
+        noFill()
+        circle(this.x(),this.y(),this.getDotSize()-this.getDotSpacing());
+    }
+    drawSelected(){
+        stroke(color(255,255,255));
+        strokeWidth(5)
+        noFill()
+        circle(this.x(),this.y(),this.getDotSize()-this.getDotSpacing());
+    }
+
     searchComprisedOf(elements){
         let result = false;
         for(let i = 0; i<this.comprisedOf.length && !result; i++){
             elements.forEach(element=>{
-                if(element.ref = this.comprisedOf[i].value){
+                if(element.ref == this.comprisedOf[i].value){
                     result = element
                 }
             });
@@ -407,34 +409,193 @@ class SepRefIcon extends InteractiveElement{
         super(x,y,width,data);
         this.id = id
         this.image = image
-        this.linkedElements = [];
-        this.hoverLook = {fill:color(50,50,50), stroke:color(90,90,90)};
+        this.restLook = {fill:color(0,0,0), stroke:color(0,0,0)};
+        this.hoverLook = {fill:color(80,80,80), stroke:color(50,50,50)};
+    }
+    drawBackground(){
+        fill(this.background)
+        noStroke()
+        rect(this.x(),this.y(),this.width(),this.height())
+        circle(this.x()+this.width()/2,this.y()+this.height()/2, 50)
+    }
+
+    checkHover(){
+        if(mouseX>this.x() && mouseX<this.x()+this.width() &&mouseY>this.y() && mouseY<this.y()+this.height()){
+            return this
+        }
+        return null
+    }
+    drawRest(){
+        tint(128)
+        image(this.image, this.x(),this.y(),this.width(),this.height(),0.5)
+    }
+    drawHighlighted(){
+        fill(this.hoverLook.fill)
+        noStroke()
+        circle(this.x()+this.width()/2,this.y()+this.height()/2, 50)
+        this.drawRest()
+    }
+    drawOutlined(){
+
+    }
+    drawSelected(){
+
+    }
+    
+}
+class DciElement extends InteractiveElement{
+    constructor(x,y,diameter,data,title){
+        super(x,y,diameter,data)
+        this.title = title
     }
     redraw(){
-        super.redraw();
-        if(this.hovered){
-            circle(this.x()+this.width()/2,this.y()+this.height()/2, 50)
-        }else{
-            stroke(150, 150, 150);
-            rect(this.x(),this.y(),this.width(),this.height());
+        this.drawBackground()
+        textAlign(CENTER,CENTER)
+        noStroke();
+        if(this.highlighted){
+            
         }
-        image(this.image, this.x(),this.y(),this.width(),this.height())
+        if(this.hovered || this.selected){
+            fill(255,255,255)
+        }else{
+            fill(150,150,150)
+        }
+        text(this.title, this.x(), this.y()+2)
+        super.redraw()  
     }
-    isWithin(){
-        return mouseX>this.x() && mouseX<this.x()+this.width() &&mouseY>this.y() && mouseY<this.y()+this.height()
+    drawBackground(){
+        fill(0,0,0)
+        noStroke()
+        circle(this.x(),this.y(),this.width()+3)
     }
-    select(){
-        super.select()
-        this.linkedElements.forEach(element => {
-            element.highlight();
-        });
+    init(){
+        this.children.forEach(child=>{
+            child.init();
+        })
+    }
+    checkHover(){
+        let result = null;
+        //hack to deal with shortcomming of horizontalRow parent
+        if(mouseX>dciLists.x()-20 && mouseX<dciLists.x()+dciLists.width()+100 && mouseY>dciLists.y()-50 && mouseY<dciLists.y()+dciLists.height()){
+            let d = dist(mouseX,mouseY,this.x(),this.y());
+            if(d<this.width()/2){
+                result = this;
+            }
+            if(result == null){
+                for (let i = 0; i < this.children.length; i++) {
+                    const childHover = this.children[i].checkHover();
+                    if(childHover)return childHover
+                }
+            }
+        }
+        return result
+    }
+
+    drawRest(){
+        if(!this.selected){
+            fill(150,150,150)
+            noStroke()
+            textAlign(CENTER,CENTER)
+            text(this.title, this.x(), this.y()+2)
+        }
+    }
+    drawHighlighted(){
+        fill(80,80,80)
+        noStroke()
+        circle(this.x(),this.y(),this.width())
+        this.drawRest()
+    }
+    drawOutlined(){
+
+    }
+    drawSelected(){
+        fill(255,255,255)
+        noStroke()
+        text(this.title, this.x(), this.y()+2)
+    }
+    add(element){
+        super.add(element);
+    }
+}
+class DciDropDown extends DciElement{
+    constructor(x,y,diameter,data,title){
+        super(x,y,diameter,data,title);
+        for(let i = 1; i <= data.length; i++){
+            this.add(new DciDropRight(x,y+40*i,diameter,data[i-1],i))
+        }
+        this.setHeight(50)
+        this.setWidth(50)
+    }
+    updateLayout(){
+        this.children.forEach(child=>{
+            child.setPosition([this.x(),child.y()])
+        })
+        super.updateLayout()
+    }
+    redraw(){
+        textSize(24);
+        super.redraw();
+    }
+
+}
+class DciDropRight extends DciElement{
+    constructor(x,y,diameter,data,title){
+        super(x,y,diameter,data,title);
+        let alpha = ["A","B","C","D","E"]
+        for(let i = 1; i <= data; i++){
+            let newDci = new DciEnd(x+25*i,y,diameter,null,alpha[i-1])
+            this.add(newDci)
+        }
+    }
+    init(){
+        this.tempNotation = this.parent.title+this.title;
+        super.init();
+    }
+    redraw(){
+        textSize(18);
+        super.redraw();
+    }
+    updateLayout(){
+        let i = 1;
+        this.children.forEach(child=>{
+            child.setPosition([this.x()+25*i,this.y()])
+            i++
+        })
+        super.updateLayout()
+    }
+}
+class DciEnd extends DciElement{
+    constructor(x,y,diameter,data,title){
+        super(x,y,diameter,data,title);    
+    }
+    init(){
+        this.tempNotation = this.parent.tempNotation+"."+this.title;
+        //yuck :(
+        this.parent.parent.parent.hasChild.forEach(child=>{
+            let possibleRef = ngss[child.value];
+            if(possibleRef.statementNotation[0].value === this.tempNotation){
+                let simple = new SimpleRef(child.value,possibleRef)
+                this.addRef(simple)
+                simple.dciParent = this;
+                simple.hasChild.forEach(refChild=>{
+                    let sub = new SimpleRef(refChild.value, ngss[refChild.value])
+                    simple.addRef(sub)
+                    sub.dciParent = simple;
+                    
+                })
+            }
+        })
+    }
+    redraw(){
+        textSize(18);
+        super.redraw();
     }
     rest(){
         if(this.selected)
-        this.linkedElements.forEach(element => {
-            element.dehighlight();
-        });
         super.rest();
+    }
+    select(){
+        super.select()
     }
 }
 class GraphDrawing extends HorizontalPanel{
@@ -469,31 +630,49 @@ class GraphDrawing extends HorizontalPanel{
         let cccCount = 0;
         //Add all performance expectations as dots!
         Object.keys(ngss).forEach((k)=>{
-            if(ngss[k].statementLabel && ngss[k].statementLabel[0].value == "Performance Expectation"){
-                let pe = ngss[k];
-                let comprisedOf = pe.comprisedOf.map(e=>{return e.value})
-                let cccRow = null;
-                
-                for(let i = 0; i< comprisedOf.length && !cccRow; i++){
-                        cccRow = this.getRefElement(comprisedOf[i])
-                }
-                if(cccRow){
-                    cccCount++;
-                }else{
-                    console.log("PE not recorded in CCCs: "+pe.statementNotation[0].value )
-                    //console.log(pe)
-                }
-                if(cccRow){
-                    //ToDo: look through each dot set in row to find corresponding sep, 
-                    //and add dot to that dotset for this PE (with ref)
-                    let peHome = null;
-                    for(let i = 0; i< comprisedOf.length && !peHome; i++){
-                        peHome = cccRow.getSepRefElement(comprisedOf[i])
+            if(ngss[k].statementLabel && ngss[k].statementLabel[0].value == "Disciplinary Core Idea"){
+                let dciTitleRef = ngss[k];
+                dciLists.children.forEach(header=>{
+                    console.log(header)
+                    header.children.forEach(dci=>{
+                        console.log(dci.tempNotation)
+                        if(dci.tempNotation == dciTitleRef.statementNotation[0].value.substring(dciTitleRef.statementNotation[0].value.length - dci.tempNotation.length)){
+                            Object.assign(dci,dciTitleRef)
+                        }
+                    })
+                })
+                // Skip "Students who demonstrate understaning..." blah blah
+                ngss[dciTitleRef.hasChild[0].value].hasChild.forEach(peRef=>{
+                    let pe = ngss[peRef.value];
+                    let comprisedOf = pe.comprisedOf.map(e=>{return e.value})
+                    let cccRow = null;
+                    
+                    for(let i = 0; i< comprisedOf.length && !cccRow; i++){
+                            cccRow = this.getRefElement(comprisedOf[i])
                     }
-                    peHome.add(new Dot(0,0,this.getDotSize,peHome.children.length,pe,cccRow,peHome.possibleRefs[0]))
-                    cccRow.totalPEs++;
-                    cccRow.parent.totalPEs++;
-                }
+                    if(cccRow){
+                        cccCount++;
+                        //ToDo: look through each dot set in row to find corresponding sep, 
+                        //and add dot to that dotset for this PE (with ref)
+                        let peHome = null;
+                        for(let i = 0; i< comprisedOf.length && !peHome; i++){
+                            peHome = cccRow.getSepRefElement(comprisedOf[i])
+                        }
+                        let dciLinks = []
+                        for(let i = 0; i< comprisedOf.length; i++){
+                            let possibleRef = dciLists.getRefElement(comprisedOf[i])
+                            if(possibleRef.dciParent && dciLinks.indexOf(possibleRef.dciParent.dciParent) === -1){
+                                dciLinks.push(possibleRef.dciParent.dciParent)
+                            } 
+                        }
+                        peHome.add(new Dot(0,0,this.getDotSize,peHome.children.length,pe,cccRow,peHome.possibleRefs[0],dciLinks,dciTitleRef))
+                        cccRow.totalPEs++;
+                        cccRow.parent.totalPEs++;
+                    }else{
+                        console.log("PE not recorded in CCCs: "+pe.statementNotation[0].value )
+                        //console.log(pe)
+                    }
+                })
             }
         })
         console.log("PEs with CCCs identified: "+ cccCount)
@@ -549,6 +728,34 @@ class SepsPannel extends HorizontalPanel{
             i++;
         })
         this.updateLayout()
+    }
+
+}
+class DciPannel extends HorizontalPanel{
+    constructor(x,y,width,height,data,ngss){
+        super(x,y,width,height,data,4)
+        let structure = {
+            "PS":[3,2,4,3],
+            "LS":[4,4,2,4],
+            "ESS":[3,5,4,],
+            "ETS":[3]
+        }
+        Object.keys(structure).forEach(k=>{
+            this.add(new DciDropDown(x,y,22,structure[k],k))
+        })
+        this.children.forEach(child=>{
+            child.init();
+        })
+        this.updateLayout()
+    }
+    checkHover(){
+        if(mouseX>dciLists.x()-20 && mouseX<dciLists.x()+dciLists.width()+100 && mouseY>dciLists.y()-50 && mouseY<dciLists.y()+dciLists.height()){
+            for (let i = 0; i < this.children.length; i++) {
+                const childHover = this.children[i].checkHover();
+                if(childHover)return childHover
+            }
+        }
+        return null
     }
 
 }
