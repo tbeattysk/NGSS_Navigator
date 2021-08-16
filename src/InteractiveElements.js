@@ -114,8 +114,15 @@ class VerticalGrowGradeBand extends InteractiveContainer{
         super.add(element);
     }
     redraw(){
-        super.redraw()
+        this.children.forEach(child => {
+            child.redraw();
+        })
     }
+    // redraw(){
+ 
+    //     
+        
+    // }
     updateLayout(){
         this.setBounds([this.x(),height,this.width(),0]);
 
@@ -125,6 +132,11 @@ class VerticalGrowGradeBand extends InteractiveContainer{
             this.setHeight(this.height()+element.height());
         })
         super.updateLayout()
+    }
+}
+class EmptyBox extends InteractiveContainer{
+    constructor(x,y,width){
+        super(x,y,width,0)
     }
 }
 class HorizontalPanel extends InteractiveContainer{
@@ -152,13 +164,24 @@ class HorizontalPanel extends InteractiveContainer{
     }
 }
 class DotSetRow extends HorizontalPanel{
-    constructor(x,y,width,data){
+    constructor(x,y,width,data,prev,colors){
         super(x,y,width,0,data,8)
         this.totalPEs = 0;
+        this.prev = prev;
+        this.colors = colors
     }
     redraw(){
-
-        super.redraw()
+        fill(this.colors[1])
+        noStroke()
+        if(this.parent.gradeBand[0]=="K"){
+            this.bezGraphStartSection()
+        }else{
+            this.bezGraphMidSection()
+        }
+        if(this.parent.gradeBand[0]=="9"){
+            rect(this.right()-this.getDotSize()-1,this.bottom(),width,this.top()-2-this.bottom())
+        }
+        // Don't call super.redraw() otherwise next grade level might cover dots
     }
     setHeight(newHeight){
         this.children.forEach(child=>{
@@ -192,6 +215,34 @@ class DotSetRow extends HorizontalPanel{
         }
         super.updateLayout()
     }
+    top(){return this.y()}
+    bottom(){return this.bounds[1]+this.bounds[3]}
+    left(){return this.x()}
+    right(){return this.bounds[0]+this.bounds[2]}
+    bezGraphStartSection(){ 
+        beginShape()
+        vertex(0,height)
+        bezierVertex(0,this.bottom(), this.left(), this.bottom(),this.left(), this.bottom())
+        vertex(this.right()-this.getDotSize(),this.bottom())
+        vertex(this.right()-this.getDotSize(),this.top()-2)
+        vertex(this.left(),this.top()-2)
+        bezierVertex(this.left(), this.top()-2, 0, this.top()-2, 0, height)
+        endShape()
+      }
+      bezGraphMidSection(){
+        beginShape()
+        let prevRight = this.prev.right()-this.getDotSize()-1
+        let xcontr = width/30
+        vertex(prevRight,this.prev.bottom())
+        bezierVertex(prevRight + xcontr,this.prev.bottom(), this.left()+this.getDotSize()-xcontr, this.bottom(),this.left()+this.getDotSize(), this.bottom())
+        vertex(this.right()-this.getDotSize(), this.bottom())
+        vertex(this.right()-this.getDotSize(), this.top()-2)
+        vertex(this.left()+this.getDotSize(), this.top()-2)
+        bezierVertex(this.left()+this.getDotSize()-xcontr, this.top()-2, prevRight+xcontr, this.prev.top()-2, prevRight, this.prev.top()-2)
+        vertex(prevRight,this.prev.bottom())
+        endShape()
+      }
+    
 }
 class DotSet extends InteractiveContainer{
     constructor(x, y, height,sepsElement){
@@ -240,6 +291,8 @@ class DotSet extends InteractiveContainer{
     }
     // redraw(){
     //     noFill()
+    //     stroke(255,255,255)
+    //     strokeWeight(1)
     //     rect(this.x(),this.y(),this.width(),this.height());
     //     super.redraw();
     // }
@@ -251,6 +304,7 @@ class InteractiveElement extends InteractiveContainer{
         this.restLook = {fill:color(255,255,255), stroke:color(255,255,255)};
         this.highlightLook = {fill:color(150,150,150), stroke:color(0,0,0)};
         this.background = color(0,0,0)
+        this.outlineColor = color(255,200);
         this.selected = false;
         this.outlined = false;
         this.highlighted = false;
@@ -261,14 +315,15 @@ class InteractiveElement extends InteractiveContainer{
     }
     redraw(withBackground){
         if(withBackground){
-            this.drawBackground();
+                this.drawBackground();
         }if(!this.hidden){
             if(!this.highlighted && !this.outlined && !this.selected)this.drawRest()
             if(this.highlighted)this.drawHighlighted();
             if(this.outlined)this.drawOutlined();
             if(this.selected)this.drawSelected();
         }
-        super.redraw()
+        if(this instanceof DciElement) super.redraw()
+        
     }
     hide(){
         this.hidden = true;
@@ -288,15 +343,17 @@ class InteractiveElement extends InteractiveContainer{
     }
     highlight(){
         this.highlighted = true;
-        this.redraw(true);
+        this.redraw(false);
     }
     dehighlight(){
         this.highlighted = false;
         this.redraw(true);
     }
-    outline(){
+    outline(outlineColor){
         this.outlined=true;
         this.redraw(true);
+        this.outlineColor = outlineColor || color(0,200);
+
     }
     deoutline(){
         this.outlined=false;
@@ -317,14 +374,20 @@ class InteractiveElement extends InteractiveContainer{
 
 }
 class Dot extends InteractiveElement{
-    constructor(x, y, diameter, index, data,cccRef, sepRef, dciRefs, dciTitleRef){
+    constructor(x, y, diameter, index, data,selfRef,cccRef, sepRef, dciRefs, dciTitleRef,colors){
         super(x,y,diameter,data)
         this.index = index
         this.data = data
+        this.refNotation = selfRef
         this.cccRef = cccRef;
         this.sepRef = sepRef;
         this.dciRefs = dciRefs;
         this.dciTitleRef = dciTitleRef;
+        this.colors = colors;
+        this.restLook.fill = colors[0]
+        this.background = colors[1]
+        this.highlightLook.fill = colors[2]
+        this.featured = false;
         this.dciId = dciTitleRef.statementNotation[0].value.split("-")[1]
         this.dciDesc = dciTitleRef.description[0].value
         this.linkedElements = [sepRef];
@@ -348,9 +411,8 @@ class Dot extends InteractiveElement{
     drawBackground(){
         fill(this.background)
         noStroke()
-        circle(this.x(),this.y(),this.getDotSize()+2);
+        circle(this.x(),this.y(),this.getDotSize());
     }
-
     checkHover(){
         let d = dist(mouseX,mouseY,this.x(),this.y());
         if(d<this.getDotSize()/2){
@@ -372,37 +434,83 @@ class Dot extends InteractiveElement{
     drawRest(){
         fill(this.restLook.fill);
         noStroke();
-        circle(this.x(),this.y(),this.getDotSize()-this.getDotSpacing());
+
+        if(this.featured){
+            this.star(this.x(),this.y(),this.getDotSize()/4, this.getDotSize()-1.5*this.getDotSpacing(),5)
+        }else{
+            circle(this.x(),this.y(),this.getDotSize()-this.getDotSpacing());
+        }
     }
     drawHighlighted(){
         fill(this.highlightLook.fill);
-        noStroke();
-        circle(this.x(),this.y(),this.getDotSize()-this.getDotSpacing());
+        noStroke()
+        if(this.featured){
+            this.star(this.x(),this.y(),this.getDotSize()/4, this.getDotSize()-1.5*this.getDotSpacing(),5)
+        }else{
+            circle(this.x(),this.y(),this.getDotSize()-this.getDotSpacing());
+        }
     }
     drawOutlined(){
-        stroke(color(255,255,255));
-        strokeWidth(2)
+        if(!this.highlighted)this.drawRest()
+        stroke(this.outlineColor);
+        strokeWeight(3)
+        //fill(200)
         noFill()
-        circle(this.x(),this.y(),this.getDotSize()-this.getDotSpacing());
+        if(this.featured){
+            this.star(this.x(),this.y(),this.getDotSize()/4, this.getDotSize()-1.5*this.getDotSpacing(),5)
+        }else{
+            circle(this.x(),this.y(),this.getDotSize()-this.getDotSpacing());
+        }
     }
     drawSelected(){
-        stroke(color(255,255,255));
-        strokeWidth(5)
-        noFill()
-        circle(this.x(),this.y(),this.getDotSize()-this.getDotSpacing());
+        stroke(color(100));
+        strokeWeight(5)
+        //fill(this.highlightLook.fill)
+        if(this.featured){
+            this.star(this.x(),this.y(),this.getDotSize()/4, this.getDotSize()-1.5*this.getDotSpacing(),5)
+        }else{
+            circle(this.x(),this.y(),this.getDotSize()-this.getDotSpacing());
+        }
+    }
+    searchComprisedOf(elements){
+        let results = [];
+        if(elements){
+            for(let i = 0; i<this.comprisedOf.length; i++){
+                elements.forEach(element=>{
+                    if(element.ref == this.comprisedOf[i].value){
+                        results.push(element)
+                    }
+                });
+            }
+        }
+        return results;
+    }
+    getAllPossibleDciRefs(){
+        let allRefs = [];
+        this.dciRefs.forEach(ref=>{
+            ref.possibleRefs.forEach(subRef=>{
+                subRef.possibleRefs.forEach(bottom=>{
+                    allRefs.push(bottom);
+                })
+            })
+        })
+        return allRefs;
     }
 
-    searchComprisedOf(elements){
-        let result = false;
-        for(let i = 0; i<this.comprisedOf.length && !result; i++){
-            elements.forEach(element=>{
-                if(element.ref == this.comprisedOf[i].value){
-                    result = element
-                }
-            });
+    star(x, y, radius1, radius2, npoints) {
+        let angle = TWO_PI / npoints;
+        let halfAngle = angle / 2.0;
+        beginShape();
+        for (let a = -0.315; a < TWO_PI; a += angle) {
+          let sx = x + cos(a) * radius2;
+          let sy = y + sin(a) * radius2;
+          vertex(sx, sy);
+          sx = x + cos(a + halfAngle) * radius1;
+          sy = y + sin(a + halfAngle) * radius1;
+          vertex(sx, sy);
         }
-        return result;
-    }
+        endShape(CLOSE);
+      }
 }
 class SepRefIcon extends InteractiveElement{
     constructor(x,y,width,data,colorVal,id,image){
@@ -416,7 +524,7 @@ class SepRefIcon extends InteractiveElement{
         fill(this.background)
         noStroke()
         rect(this.x(),this.y(),this.width(),this.height())
-        circle(this.x()+this.width()/2,this.y()+this.height()/2, 50)
+        circle(this.x()+this.width()/2,this.y()+this.height()/2, 52)
     }
 
     checkHover(){
@@ -436,9 +544,21 @@ class SepRefIcon extends InteractiveElement{
         this.drawRest()
     }
     drawOutlined(){
-
+        this.drawRest()
+        noFill()
+        stroke(this.outlineColor)
+        strokeWeight(2)
+        circle(this.x()+this.width()/2,this.y()+this.height()/2, 50)
     }
     drawSelected(){
+        this.drawBackground()
+        if(this.highlighted)this.drawHighlighted()
+        tint(255)
+        image(this.image, this.x(),this.y(),this.width(),this.height(),0.5)
+        noFill()
+        stroke(255)
+        strokeWeight(2)
+        circle(this.x()+this.width()/2,this.y()+this.height()/2, 50)
 
     }
     
@@ -506,12 +626,17 @@ class DciElement extends InteractiveElement{
         this.drawRest()
     }
     drawOutlined(){
-
+        this.drawRest()
+        noFill()
+        stroke(this.outlineColor)
+        strokeWeight(2)
+        circle(this.x(),this.y(),this.width())
     }
     drawSelected(){
         fill(255,255,255)
         noStroke()
         text(this.title, this.x(), this.y()+2)
+        this.drawOutlined()
     }
     add(element){
         super.add(element);
@@ -576,9 +701,11 @@ class DciEnd extends DciElement{
             if(possibleRef.statementNotation[0].value === this.tempNotation){
                 let simple = new SimpleRef(child.value,possibleRef)
                 this.addRef(simple)
+                let title = possibleRef.statementNotation[0].value+": "+possibleRef.description[0].value;
                 simple.dciParent = this;
                 simple.hasChild.forEach(refChild=>{
                     let sub = new SimpleRef(refChild.value, ngss[refChild.value])
+                    sub.dciParentTitle = title;
                     simple.addRef(sub)
                     sub.dciParent = simple;
                     
@@ -597,30 +724,41 @@ class DciEnd extends DciElement{
     select(){
         super.select()
     }
+    drawOutlined(){
+        this.drawRest()
+        noFill()
+        stroke(this.outlineColor)
+        strokeWeight(2)
+        circle(this.x(),this.y(),this.width())
+    }
 }
 class GraphDrawing extends HorizontalPanel{
-    constructor(x,y,width,height,data,dotSize,margins,ngss){
-        super(x,y,width,height,data,4,dotSize,margins)
+    constructor(x,y,width,height,data,dotSize,margins,ngss,colors){
+        super(x,y,width,height,data,6,dotSize,margins)
         let gradeBands = [["K","1","2"],["3","4","5",],["6","7","8"],["9","10","11","12"]];
+        this.add(new EmptyBox(x,y,15))
         gradeBands.forEach(band => {
             this.add(new VerticalGrowGradeBand(x,y,this.width()/5,band));
         });
+        this.add(new EmptyBox(x,y,0))
         //graph only the main 7 cccs (deal with other 5 with Seps?)
         //Prepare all 7 CCC rows in all 4 grade bands
         //Include ETS? missing PEs with only 7
         for (let i = 0; i < 7; i++) {
-            for(let j = 0; j < 4; j++){
+            let newRow, prevRow
+            for(let j = 1; j < 5; j++){
                 let child = this.children[j];
-                let newRow = new DotSetRow(child.x(),child.y(),child.width(),ngss[this.hasChild[i].value])
+                newRow = new DotSetRow(child.x(),child.y(),child.width(),ngss[this.hasChild[i].value],prevRow,colors[i])
                 this.children[j].add(newRow);
                 for(let k = 0; k<8;k++){
-                    newRow.add(new DotSet(newRow.x(),newRow.y(),newRow.height(),sepsIcons.children[k]))
+                    newRow.add(new DotSet(newRow.x(),newRow.y(),newRow.height(),sepsIcons.children[k]),colors[i])
                 }
+                prevRow = newRow
             }
             let ccc = ngss[this.hasChild[i].value];
             ccc.hasChild.forEach(subCccRef => {
-                for (let p = 0; p < this.children.length; p++) {
-                    if(gradeBands[p].includes(ngss[subCccRef.value].educationLevel[0].value)){
+                for (let p = 1; p < 5; p++) {
+                    if(gradeBands[p-1].includes(ngss[subCccRef.value].educationLevel[0].value)){
                         //keep track of all CCC refs for adding PE dots to correct grade band and DotSetRow
                         this.children[p].children[i].addRef(new SimpleRef(subCccRef.value,ngss[subCccRef.value]));
                     }
@@ -633,9 +771,7 @@ class GraphDrawing extends HorizontalPanel{
             if(ngss[k].statementLabel && ngss[k].statementLabel[0].value == "Disciplinary Core Idea"){
                 let dciTitleRef = ngss[k];
                 dciLists.children.forEach(header=>{
-                    console.log(header)
                     header.children.forEach(dci=>{
-                        console.log(dci.tempNotation)
                         if(dci.tempNotation == dciTitleRef.statementNotation[0].value.substring(dciTitleRef.statementNotation[0].value.length - dci.tempNotation.length)){
                             Object.assign(dci,dciTitleRef)
                         }
@@ -665,7 +801,7 @@ class GraphDrawing extends HorizontalPanel{
                                 dciLinks.push(possibleRef.dciParent.dciParent)
                             } 
                         }
-                        peHome.add(new Dot(0,0,this.getDotSize,peHome.children.length,pe,cccRow,peHome.possibleRefs[0],dciLinks,dciTitleRef))
+                        peHome.add(new Dot(0,0,this.getDotSize,peHome.children.length,pe,peRef.value,cccRow,peHome.possibleRefs[0],dciLinks,dciTitleRef,cccRow.colors))
                         cccRow.totalPEs++;
                         cccRow.parent.totalPEs++;
                     }else{
@@ -680,8 +816,8 @@ class GraphDrawing extends HorizontalPanel{
         this.updateLayout()
     }
     updateLayout(){
-        this.setWidth(width);
-        let graphHeightRatio = (height - 100)/(this.children[3].totalPEs*this.getDotSize());
+        //this.setWidth(width);
+        let graphHeightRatio = (height - 100)/(this.children[4].totalPEs*this.getDotSize());
         this.children.forEach(child => {
             //child.setHeight(child.totalPEs * this.dotSize/10);
             child.children.forEach(row=>{
@@ -691,9 +827,34 @@ class GraphDrawing extends HorizontalPanel{
                 }
                 row.setHeight(plannedHeight)
             })
-            child.setWidth(this.width()/5)
+            if(child instanceof VerticalGrowGradeBand) child.setWidth(this.width()/5)
         });
         super.updateLayout();
+    }
+    redraw(){
+        super.redraw();
+    }
+    redrawDots(){
+        //Ensure dots are drawn over all graph area
+        this.children.forEach(child => {
+            child.children.forEach(row=>{
+                row.children.forEach(dotSet=>{
+                    dotSet.children.forEach(dot=>{
+                        dot.redraw();
+                    })
+                })
+            })
+        });
+    }
+    redrawText(){
+        //draw text
+        this.children[4].children.forEach(row =>{
+            fill(row.colors[2])
+            textAlign(CENTER,TOP)
+            textSize(18)
+            noStroke()
+            text(row.description[0].value,row.x()-10,row.y()+5,row.width()+45)
+        })
     }
 }
 class SepsPannel extends HorizontalPanel{
