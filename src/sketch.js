@@ -197,26 +197,34 @@ class MouseManager{
                 })
             }
         })
+        infoPane.deselectPE()
     }
     setInspect(){
         if(this.inspectedElement){
-            this.inspectedElement.deselect();
-            this.inspectedElement.dehighlight();
-            this.linkedInspectedElements.forEach(link=>{
-                link.deoutline()
-                if(link instanceof DciEnd){
-                    link.linkedElements.forEach(otherPE=>{
-                        otherPE.deoutline();
-                    })
-                }
-            })
+            this.clearInspect()
         }
         infoPane.setInspect()
         this.inspectedElement = this.selectedElement;
         this.linkedInspectedElements = this.linkedSelectedElements;
         this.redrawInspected()
     }
+    clearInspect(){
+        infoPane.deinspectPE()
+        if(!this.inspectedElement)return
+        this.inspectedElement.deselect();
+        this.inspectedElement.dehighlight();
+        this.linkedInspectedElements.forEach(link=>{
+            link.deoutline()
+            if(link instanceof DciEnd){
+                link.linkedElements.forEach(otherPE=>{
+                    otherPE.deoutline();
+                })
+            }
+        })
+        this.inspectedElement = null;
+    }
     redrawInspected(){
+        if(!this.inspectedElement) return
         let outlineColor = 255;
         this.inspectedElement.outline(255)
         this.inspectedElement.highlight();
@@ -249,9 +257,14 @@ class MouseManager{
     }
     mouseClicked(){
         if(this.hoveredElement && this.hoveredElement!=this.inspectedElement){
-            if(this.hoveredElement == this.selectedElement && this.hoveredElement instanceof Dot){
-                this.setInspect();
-                this.clearSelect();
+            if(this.hoveredElement == this.selectedElement){
+                if(this.hoveredElement instanceof Dot){
+                    this.setInspect();
+                    this.clearSelect();
+                }else{
+                    this.clearInspect();
+                    this.redrawInspected()
+                }
             }else{
                 if(this.selectedElement){
                     this.clearSelect();

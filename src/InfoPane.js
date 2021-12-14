@@ -25,6 +25,9 @@ class InfoPane{
         this.selectedPE = new InfoBlockBlank(this.elem)
         this.inspectedPE.elem.class("pe-selected-frame")
     }
+    deinspectPE(){
+        if(this.inspectedPE) this.inspectedPE.elem.remove();
+    }
     width(){
         return this.elem.width;
     }
