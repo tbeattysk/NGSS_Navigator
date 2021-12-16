@@ -166,7 +166,16 @@ class MouseManager{
         redraw()
     }
     setSelect(selectedElement, linkedSelectedElements){
-        ga('send','event','On Page Navigation','Element Selected','',0,{'nonInteration':false});
+        let affil = ""
+        if(this.inspectedElement){
+             affil = this.inspectedElement.statementNotation[0].value
+        }
+        if(selectedElement instanceof Dot && selectedElement.statementLabel[0].value == "Performance Expectation"){
+            gtag("event", "select_content", {content_type: selectedElement.statementLabel[0].value,
+                                         item_id: selectedElement.refNotation, 
+                                         item_name: selectedElement.statementNotation[0].value,
+                                         affiliation:affil });
+        }
         this.selectedElement = selectedElement;
         selectedElement.select();
         this.linkedSelectedElements = linkedSelectedElements;
@@ -201,7 +210,6 @@ class MouseManager{
         infoPane.deselectPE()
     }
     setInspect(){
-        ga('send','event','On Page Navigation','Element Inspected','',0,{'nonInteration':false});
         if(this.inspectedElement){
             this.clearInspect()
         }
