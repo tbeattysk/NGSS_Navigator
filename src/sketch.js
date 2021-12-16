@@ -201,6 +201,7 @@ class MouseManager{
         infoPane.deselectPE()
     }
     setInspect(){
+        console.log(this.inspectedElement);
         console.log(gtag('send','event','On Page Navigation','Element Inspected','',0,{'nonInteration':false}));
         if(this.inspectedElement){
             this.clearInspect()
