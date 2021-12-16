@@ -166,7 +166,7 @@ class MouseManager{
         redraw()
     }
     setSelect(selectedElement, linkedSelectedElements){
-        console.log(gtag('send','event','On Page Navigation','Element Selected','',0,{'nonInteration':false}));
+        gtag('send','event','On Page Navigation','Element Selected','',0,{'nonInteration':false});
         this.selectedElement = selectedElement;
         selectedElement.select();
         this.linkedSelectedElements = linkedSelectedElements;
@@ -201,8 +201,7 @@ class MouseManager{
         infoPane.deselectPE()
     }
     setInspect(){
-        console.log(this.inspectedElement);
-        console.log(gtag('send','event','On Page Navigation','Element Inspected','',0,{'nonInteration':false}));
+        gtag('send','event','On Page Navigation','Element Inspected','',0,{'nonInteration':false});
         if(this.inspectedElement){
             this.clearInspect()
         }
